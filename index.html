@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Grok + ChatGPT Collaborator</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+  <style>
+    .message { max-width: 85%; padding: 14px 18px; border-radius: 20px; margin-bottom: 16px; }
+    .user { background: #3b82f6; color: white; align-self: flex-end; border-bottom-right-radius: 4px; }
+    .grok { background: #10b981; color: white; border-bottom-left-radius: 4px; }
+    .gpt { background: #8b5cf6; color: white; border-bottom-left-radius: 4px; }
+    .chat-container { height: 65vh; overflow-y: auto; scrollbar-width: thin; }
+  </style>
+</head>
+<body class="bg-gray-950 text-white min-h-screen">
+  <div class="max-w-7xl mx-auto p-6">
+    <h1 class="text-4xl font-bold text-center mb-8 flex items-center justify-center gap-4">
+      🚀 Grok <span class="text-3xl">🤝</span> ChatGPT
+    </h1>
+
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+      <!-- Grok -->
+      <div class="bg-gray-900 rounded-3xl p-6 border border-emerald-900">
+        <div class="flex items-center gap-3 mb-6">
+          <div class="text-3xl">🚀</div>
+          <div>
+            <h2 class="text-2xl font-bold">Grok (xAI)</h2>
+            <p class="text-sm text-gray-400">xAI API</p>
+          </div>
+        </div>
+        <div id="chatGrok" class="chat-container space-y-4 mb-6"></div>
+        <div class="flex gap-2">
+          <input id="inputGrok" type="text" placeholder="Ask Grok..." 
+                 class="flex-1 bg-gray-800 p-4 rounded-2xl focus:outline-none focus:ring-2 focus:ring-emerald-500">
+          <button onclick="sendToGrok()" 
+                  class="bg-emerald-600 hover:bg-emerald-700 px-8 rounded-2xl font-medium">Send</button>
+        </div>
+      </div>
+
+      <!-- ChatGPT -->
+      <div class="bg-gray-900 rounded-3xl p-6 border border-violet-900">
+        <div class="flex items-center gap-3 mb-6">
+          <div class="text-3xl">🤖</div>
+          <div>
+            <h2 class="text-2xl font-bold">ChatGPT</h2>
+            <p class="text-sm text-gray-400">OpenAI API</p>
+          </div>
+        </div>
+        <div id="chatGPT" class="chat-container space-y-4 mb-6"></div>
+        <div class="flex gap-2">
+          <input id="inputGPT" type="text" placeholder="Ask ChatGPT..." 
+                 class="flex-1 bg-gray-800 p-4 rounded-2xl focus:outline-none focus:ring-2 focus:ring-violet-500">
+          <button onclick="sendToGPT()" 
+                  class="bg-violet-600 hover:bg-violet-700 px-8 rounded-2xl font-medium">Send</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="mt-8 text-center">
+      <button onclick="sendToBoth()" 
+              class="bg-gradient-to-r from-emerald-500 to-violet-600 px-10 py-4 rounded-2xl font-bold text-lg hover:scale-105 transition">
+        Send Message to Both AIs
+      </button>
+    </div>
+  </div>
+
+  <script>
+    // Save keys to localStorage
+    function saveKeys() {
+      const grokKey = prompt("Enter your Grok (xAI) API key:");
+      const openaiKey = prompt("Enter your OpenAI API key:");
+      if (grokKey) localStorage.setItem("grokKey", grokKey);
+      if (openaiKey) localStorage.setItem("openaiKey", openaiKey);
+      alert("Keys saved in browser!");
+    }
+
+    // Get keys
+    function getGrokKey() {
+      return localStorage.getItem("grokKey") || prompt("Enter Grok API key:") || "";
+    }
+    function getOpenAIKey() {
+      return localStorage.getItem("openaiKey") || prompt("Enter OpenAI API key:") || "";
+    }
+
+    function addMessage(chatId, text, type) {
+      const chat = document.getElementById(chatId);
+      const div = document.createElement('div');
+      div.className = `message ${type}`;
+      div.innerHTML = text.replace(/\n/g, '<br>');
+      chat.appendChild(div);
+      chat.scrollTop = chat.scrollHeight;
+    }
+
+    async function callGrok(message) {
+      const key = getGrokKey();
+      if (!key) return "Grok API key required.";
+
+      const res = await fetch('https://api.x.ai/v1/chat/completions', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${key}` },
+        body: JSON.stringify({ model: "grok-3", messages: [{ role: "user", content: message }] })
+      });
+      const data = await res.json();
+      return data.choices?.[0]?.message?.content || "Error from Grok";
+    }
+
+    async function callGPT(message) {
+      const key = getOpenAIKey();
+      if (!key) return "OpenAI API key required.";
+
+      const res = await fetch('https://api.openai.com/v1/chat/completions', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${key}` },
+        body: JSON.stringify({ model: "gpt-4o", messages: [{ role: "user", content: message }] })
+      });
+      const data = await res.json();
+      return data.choices?.[0]?.message?.content || "Error from ChatGPT";
+    }
+
+    async function sendToBoth() {
+      const msg = prompt("Type your question for both AIs:");
+      if (!msg) return;
+
+      addMessage('chatGrok', msg, 'user');
+      addMessage('chatGPT', msg, 'user');
+
+      const [grokRes, gptRes] = await Promise.all([callGrok(msg), callGPT(msg)]);
+
+      addMessage('chatGrok', grokRes, 'grok');
+      addMessage('chatGPT', gptRes, 'gpt');
+    }
+
+    async function sendToGrok() {
+      const input = document.getElementById('inputGrok');
+      const msg = input.value.trim();
+      if (!msg) return;
+      addMessage('chatGrok', msg, 'user');
+      input.value = '';
+      const res = await callGrok(msg);
+      addMessage('chatGrok', res, 'grok');
+    }
+
+    async function sendToGPT() {
+      const input = document.getElementById('inputGPT');
+      const msg = input.value.trim();
+      if (!msg) return;
+      addMessage('chatGPT', msg, 'user');
+      input.value = '';
+      const res = await callGPT(msg);
+      addMessage('chatGPT', res, 'gpt');
+    }
+
+    // Auto-save keys button (call once)
+    if (!localStorage.getItem("grokKey") && !localStorage.getItem("openaiKey")) {
+      setTimeout(() => {
+        if (confirm("Would you like to save your API keys in the browser?")) saveKeys();
+      }, 800);
+    }
+  </script>
+</body>
+</html>
